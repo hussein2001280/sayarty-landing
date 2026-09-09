@@ -18,14 +18,19 @@ export default async function AdminCarsPage() {
     cars.map(async (car) => ({
       ...car,
       specs: await db.selectFrom("car_specs").select(["label"]).where("car_id", "=", car.id).orderBy("sort_order", "asc").execute(),
-      colors: await db.selectFrom("car_colors").select(["name", "hex_code"]).where("car_id", "=", car.id).orderBy("sort_order", "asc").execute(),
+      colors: await db
+        .selectFrom("car_colors")
+        .select(["id", "name", "hex_code", "image_id", "active", "sort_order"])
+        .where("car_id", "=", car.id)
+        .orderBy("sort_order", "asc")
+        .execute(),
     })),
   );
 
   return (
     <AdminShell
       title="Cars"
-      description="Create, update, reorder, feature, and deactivate monthly offer vehicles."
+      description="Create, update, reorder, feature, publish, and upload vehicle images. Featured + published cars appear in This Month's Offers."
     >
       <CarsManager initialCars={hydratedCars} mediaOptions={media} />
     </AdminShell>

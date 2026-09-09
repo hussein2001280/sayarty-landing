@@ -9,25 +9,30 @@ export default async function AdminSettingsPage() {
   await requireAdmin();
   await ensureDatabase();
 
-  const [settings, trustFeatures, locations, reviews, media] = await Promise.all([
+  const [settings, trustFeatures, reviews] = await Promise.all([
     getSiteSettings(),
     db.selectFrom("trust_features").selectAll().orderBy("sort_order", "asc").execute(),
-    db.selectFrom("locations").selectAll().orderBy("sort_order", "asc").execute(),
     db.selectFrom("reviews").selectAll().orderBy("sort_order", "asc").execute(),
-    db.selectFrom("media").select(["id", "file_name", "alt_text"]).orderBy("created_at", "desc").execute(),
   ]);
+
+  const ctaMedia = settings.cta.backgroundImageId
+    ? await db
+        .selectFrom("media")
+        .select(["data_uri"])
+        .where("id", "=", settings.cta.backgroundImageId)
+        .executeTakeFirst()
+    : null;
 
   return (
     <AdminShell
       title="Settings"
-      description="Manage hero content, contact details, SEO, tracking IDs, reviews, trust features, and locations."
+      description="Manage contact details, legal information, SEO, tracking IDs, reviews, and trust features."
     >
       <SettingsForm
         initialSettings={settings}
         initialTrustFeatures={trustFeatures}
-        initialLocations={locations}
         initialReviews={reviews}
-        mediaOptions={media}
+        ctaPreviewSrc={ctaMedia?.data_uri ?? ""}
       />
     </AdminShell>
   );

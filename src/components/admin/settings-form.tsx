@@ -1,59 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { normalizeWhatsAppNumber } from "@/lib/business";
 import type { SiteSettings } from "@/lib/types";
-
-type MediaOption = {
-  id: string;
-  file_name: string;
-  alt_text: string;
-};
 
 export function SettingsForm({
   initialSettings,
   initialTrustFeatures,
-  initialLocations,
   initialReviews,
-  mediaOptions,
+  ctaPreviewSrc = "",
 }: {
   initialSettings: SiteSettings;
   initialTrustFeatures: unknown[];
-  initialLocations: unknown[];
   initialReviews: unknown[];
-  mediaOptions: MediaOption[];
+  ctaPreviewSrc?: string;
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [trustJson, setTrustJson] = useState(JSON.stringify(initialTrustFeatures, null, 2));
-  const [locationJson, setLocationJson] = useState(JSON.stringify(initialLocations, null, 2));
   const [reviewJson, setReviewJson] = useState(JSON.stringify(initialReviews, null, 2));
   const [saving, setSaving] = useState(false);
-
-  async function uploadFile(
-    file: File,
-    kind: "hero" | "car" | "location" | "review" | "logo",
-    callback: (mediaId: string) => void,
-  ) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("kind", kind);
-    formData.append("alt", file.name);
-
-    const response = await fetch("/api/media", {
-      method: "POST",
-      body: formData,
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error ?? "Unable to upload file.");
-    }
-
-    callback(result.id);
-    toast.success("Image uploaded.");
-  }
+  const [uploadingCta, setUploadingCta] = useState(false);
+  const [ctaPreview, setCtaPreview] = useState(ctaPreviewSrc);
+  const pricing = settings.pricing ?? { currencyCode: "AED", symbolPosition: "before" as const };
+  const why = settings.why;
+  const cta = settings.cta;
 
   async function saveAll() {
     setSaving(true);
@@ -63,9 +36,14 @@ export function SettingsForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          siteSettings: settings,
+          siteSettings: {
+            ...settings,
+            contact: {
+              ...settings.contact,
+              whatsappNumber: normalizeWhatsAppNumber(settings.contact.whatsappNumber),
+            },
+          },
           trustFeatures: JSON.parse(trustJson),
-          locations: JSON.parse(locationJson),
           reviews: JSON.parse(reviewJson),
         }),
       });
@@ -77,7 +55,6 @@ export function SettingsForm({
       }
 
       toast.success("Settings saved.");
-      window.location.reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save settings.");
     } finally {
@@ -85,81 +62,182 @@ export function SettingsForm({
     }
   }
 
+  async function uploadCtaBackground(file: File) {
+    setUploadingCta(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", "cta");
+      formData.append("alt", "Final CTA background");
+
+      const response = await fetch("/api/media", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to upload file.");
+      }
+
+      setSettings((current) => ({
+        ...current,
+        cta: { ...current.cta, backgroundImageId: result.id },
+      }));
+      setCtaPreview(result.data_uri ?? "");
+      toast.success("CTA background uploaded. Save settings to keep it.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to upload file.");
+    } finally {
+      setUploadingCta(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
-        <h2 className="text-xl font-semibold text-white">Hero</h2>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.eyebrow} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, eyebrow: event.target.value } })} placeholder="Eyebrow" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.heroImageAlt} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, heroImageAlt: event.target.value } })} placeholder="Hero image alt text" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.heading} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, heading: event.target.value } })} placeholder="Heading" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.highlightedHeading} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, highlightedHeading: event.target.value } })} placeholder="Highlighted heading" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.primaryCta} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, primaryCta: event.target.value } })} placeholder="Primary CTA" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.secondaryCta} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, secondaryCta: event.target.value } })} placeholder="Secondary CTA" />
-        </div>
-        <textarea className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-3" rows={4} value={settings.hero.description} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, description: event.target.value } })} />
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <select className="h-11 rounded-2xl border border-white/10 px-4" value={settings.hero.heroImageId ?? ""} onChange={(event) => setSettings({ ...settings, hero: { ...settings.hero, heroImageId: event.target.value || null } })}>
-            <option value="">Select hero image</option>
-            {mediaOptions.map((media) => (
-              <option key={media.id} value={media.id}>
-                {media.file_name}
-              </option>
-            ))}
-          </select>
-          <label className="rounded-full border border-white/10 px-5 py-3 text-sm">
-            Upload hero image
-            <input
-              type="file"
-              accept=".png,.jpg,.jpeg,.webp,.avif"
-              className="hidden"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                await uploadFile(file, "hero", (mediaId) =>
-                  setSettings((current) => ({
-                    ...current,
-                    hero: { ...current.hero, heroImageId: mediaId },
-                  })),
-                );
-              }}
-            />
-          </label>
-        </div>
-      </section>
-
       <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
         <h2 className="text-xl font-semibold text-white">Contact, WhatsApp, Legal</h2>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           {(
             [
-              ["tradingName", "Trading name"],
+              ["tradingName", "Business / trading name"],
               ["legalName", "Legal business name"],
               ["phone", "Phone"],
               ["email", "Receiving email"],
               ["whatsappNumber", "WhatsApp number"],
+              ["city", "City"],
+              ["country", "Country"],
               ["taxNumber", "Tax registration number"],
+              ["mapsSearch", "Google Maps search / Plus Code"],
               ["mapUrl", "Google Maps URL"],
-              ["openingHours", "Opening hours"],
             ] as const
           ).map(([key, label]) => (
+            <label key={key} className="space-y-2 text-sm">
+              <span>{label}</span>
+              <input
+                className="h-11 w-full rounded-2xl border border-white/10 px-4"
+                value={settings.contact[key]}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    contact: { ...settings.contact, [key]: event.target.value },
+                  })
+                }
+                placeholder={label}
+              />
+            </label>
+          ))}
+        </div>
+        <label className="mt-4 block space-y-2 text-sm">
+          <span>Company description</span>
+          <textarea
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
+            rows={3}
+            value={settings.contact.description}
+            onChange={(event) =>
+              setSettings({ ...settings, contact: { ...settings.contact, description: event.target.value } })
+            }
+          />
+        </label>
+        <label className="mt-4 block space-y-2 text-sm">
+          <span>Address</span>
+          <textarea
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
+            rows={3}
+            value={settings.contact.address}
+            onChange={(event) =>
+              setSettings({ ...settings, contact: { ...settings.contact, address: event.target.value } })
+            }
+          />
+        </label>
+        <label className="mt-4 block space-y-2 text-sm">
+          <span>WhatsApp template</span>
+          <textarea
+            className="w-full rounded-2xl border border-white/10 px-4 py-3"
+            rows={3}
+            value={settings.contact.whatsappTemplate}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                contact: { ...settings.contact, whatsappTemplate: event.target.value },
+              })
+            }
+            placeholder="Use {{car_name}} for the selected vehicle"
+          />
+        </label>
+      </section>
+
+      <section id="legal" className="scroll-mt-6 rounded-[28px] border border-white/10 bg-[#111416] p-6">
+        <h2 className="text-xl font-semibold text-white">Legal Information</h2>
+        <p className="mt-2 text-sm text-[#A8AAA8]">
+          Keep the tax registration number empty or as a placeholder until the real number is available. Do not invent one.
+        </p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {(
+            [
+              ["legalName", "Business name"],
+              ["country", "Country"],
+              ["city", "City"],
+              ["taxNumber", "Tax registration number"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={`legal-${key}`} className="space-y-2 text-sm">
+              <span>{label}</span>
+              <input
+                className="h-11 w-full rounded-2xl border border-white/10 px-4"
+                value={settings.contact[key]}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    contact: { ...settings.contact, [key]: event.target.value },
+                  })
+                }
+                placeholder={key === "taxNumber" ? "TAX NUMBER TO BE ADDED" : label}
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
+        <h2 className="text-xl font-semibold text-white">Pricing</h2>
+        <p className="mt-2 text-sm text-[#A8AAA8]">
+          Currency formatting is centralized here so landing page prices can be changed later without editing every card.
+        </p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span>Currency code</span>
             <input
-              key={key}
-              className="h-11 rounded-2xl border border-white/10 px-4"
-              value={settings.contact[key]}
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={pricing.currencyCode}
               onChange={(event) =>
                 setSettings({
                   ...settings,
-                  contact: { ...settings.contact, [key]: event.target.value },
+                  pricing: { ...pricing, currencyCode: event.target.value.toUpperCase() },
                 })
               }
-              placeholder={label}
             />
-          ))}
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Symbol position</span>
+            <select
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={pricing.symbolPosition}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  pricing: {
+                    ...pricing,
+                    symbolPosition: event.target.value as "before" | "after",
+                  },
+                })
+              }
+            >
+              <option value="before">Before amount (AED 79,900)</option>
+              <option value="after">After amount (79,900 AED)</option>
+            </select>
+          </label>
         </div>
-        <textarea className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-3" rows={3} value={settings.contact.description} onChange={(event) => setSettings({ ...settings, contact: { ...settings.contact, description: event.target.value } })} placeholder="Company description" />
-        <textarea className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-3" rows={3} value={settings.contact.address} onChange={(event) => setSettings({ ...settings, contact: { ...settings.contact, address: event.target.value } })} placeholder="Business address" />
-        <textarea className="mt-4 w-full rounded-2xl border border-white/10 px-4 py-3" rows={3} value={settings.contact.whatsappTemplate} onChange={(event) => setSettings({ ...settings, contact: { ...settings.contact, whatsappTemplate: event.target.value } })} placeholder="WhatsApp template with {{car_name}}, {{year}}, {{price}}" />
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
@@ -179,10 +257,135 @@ export function SettingsForm({
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
-        <h2 className="text-xl font-semibold text-white">Footer and General Settings</h2>
+        <h2 className="text-xl font-semibold text-white">Why Sayarty</h2>
+        <p className="mt-2 text-sm text-[#A8AAA8]">Editorial copy for the Why section. Trust points below remain separately editable.</p>
+        <div className="mt-5 grid gap-4">
+          <label className="space-y-2 text-sm">
+            <span>Eyebrow</span>
+            <input
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={why.eyebrow}
+              onChange={(event) => setSettings({ ...settings, why: { ...why, eyebrow: event.target.value } })}
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Heading</span>
+            <input
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={why.heading}
+              onChange={(event) => setSettings({ ...settings, why: { ...why, heading: event.target.value } })}
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Description</span>
+            <textarea
+              className="w-full rounded-2xl border border-white/10 px-4 py-3"
+              rows={3}
+              value={why.description}
+              onChange={(event) => setSettings({ ...settings, why: { ...why, description: event.target.value } })}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
+        <h2 className="text-xl font-semibold text-white">Final CTA</h2>
+        <p className="mt-2 text-sm text-[#A8AAA8]">
+          Full-width cinematic closer. Upload a dark automotive background if you have one. Leave empty to use the default dark treatment.
+        </p>
+        <div className="mt-5 grid gap-4">
+          <label className="space-y-2 text-sm">
+            <span>Eyebrow</span>
+            <input
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={cta.eyebrow}
+              onChange={(event) => setSettings({ ...settings, cta: { ...cta, eyebrow: event.target.value } })}
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Heading</span>
+            <input
+              className="h-11 w-full rounded-2xl border border-white/10 px-4"
+              value={cta.heading}
+              onChange={(event) => setSettings({ ...settings, cta: { ...cta, heading: event.target.value } })}
+            />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Description</span>
+            <textarea
+              className="w-full rounded-2xl border border-white/10 px-4 py-3"
+              rows={3}
+              value={cta.description}
+              onChange={(event) => setSettings({ ...settings, cta: { ...cta, description: event.target.value } })}
+            />
+          </label>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span>Primary button</span>
+              <input
+                className="h-11 w-full rounded-2xl border border-white/10 px-4"
+                value={cta.primaryCta}
+                onChange={(event) => setSettings({ ...settings, cta: { ...cta, primaryCta: event.target.value } })}
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span>Secondary button</span>
+              <input
+                className="h-11 w-full rounded-2xl border border-white/10 px-4"
+                value={cta.secondaryCta}
+                onChange={(event) => setSettings({ ...settings, cta: { ...cta, secondaryCta: event.target.value } })}
+              />
+            </label>
+          </div>
+          <label className="space-y-2 text-sm">
+            <span>Background image</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/avif"
+              disabled={uploadingCta}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void uploadCtaBackground(file);
+                }
+              }}
+            />
+          </label>
+          {cta.backgroundImageId ? (
+            <button
+              type="button"
+              className="h-11 w-fit rounded-full border border-white/10 px-4 text-sm"
+              onClick={() => {
+                setSettings({ ...settings, cta: { ...cta, backgroundImageId: null } });
+                setCtaPreview("");
+              }}
+            >
+              Remove background image
+            </button>
+          ) : null}
+          {ctaPreview ? (
+            <Image src={ctaPreview} alt="CTA background preview" width={640} height={280} unoptimized className="max-h-40 w-full rounded-2xl object-cover" />
+          ) : (
+            <p className="text-sm text-[#A8AAA8]">No background uploaded. The landing page will use a dark cinematic placeholder.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
+        <h2 className="text-xl font-semibold text-white">Footer and Agency Credit</h2>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.footer.agencyCredit} onChange={(event) => setSettings({ ...settings, footer: { ...settings.footer, agencyCredit: event.target.value } })} placeholder="Agency credit" />
-          <input className="h-11 rounded-2xl border border-white/10 px-4" value={settings.footer.copyrightLine} onChange={(event) => setSettings({ ...settings, footer: { ...settings.footer, copyrightLine: event.target.value } })} placeholder="Copyright line" />
+          <label className="space-y-2 text-sm">
+            <span>Agency credit</span>
+            <input className="h-11 w-full rounded-2xl border border-white/10 px-4" value={settings.footer.agencyCredit} onChange={(event) => setSettings({ ...settings, footer: { ...settings.footer, agencyCredit: event.target.value } })} />
+          </label>
+          <label className="space-y-2 text-sm">
+            <span>Trendify Agency URL</span>
+            <input className="h-11 w-full rounded-2xl border border-white/10 px-4" value={settings.footer.agencyUrl} onChange={(event) => setSettings({ ...settings, footer: { ...settings.footer, agencyUrl: event.target.value } })} />
+          </label>
+          <label className="space-y-2 text-sm lg:col-span-2">
+            <span>Copyright line</span>
+            <input className="h-11 w-full rounded-2xl border border-white/10 px-4" value={settings.footer.copyrightLine} onChange={(event) => setSettings({ ...settings, footer: { ...settings.footer, copyrightLine: event.target.value } })} />
+          </label>
         </div>
       </section>
 
@@ -193,14 +396,10 @@ export function SettingsForm({
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
-        <h2 className="text-xl font-semibold text-white">Locations</h2>
-        <p className="mt-2 text-sm text-[#A8AAA8]">Editable JSON array for multiple UAE locations and primary location control.</p>
-        <textarea className="mt-4 min-h-56 w-full rounded-2xl border border-white/10 px-4 py-3 font-mono text-sm" value={locationJson} onChange={(event) => setLocationJson(event.target.value)} />
-      </section>
-
-      <section className="rounded-[28px] border border-white/10 bg-[#111416] p-6">
         <h2 className="text-xl font-semibold text-white">Reviews</h2>
-        <p className="mt-2 text-sm text-[#A8AAA8]">Editable JSON array. Keep only truthful, approved reviews in production.</p>
+        <p className="mt-2 text-sm text-[#A8AAA8]">
+          Edit customer names, ratings, and review text here. The landing page shows published reviews in this order. Do not add verification badges unless you have verification data.
+        </p>
         <textarea className="mt-4 min-h-56 w-full rounded-2xl border border-white/10 px-4 py-3 font-mono text-sm" value={reviewJson} onChange={(event) => setReviewJson(event.target.value)} />
       </section>
 

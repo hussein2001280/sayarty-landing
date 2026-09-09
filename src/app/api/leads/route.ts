@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   const car = await db
     .selectFrom("cars")
-    .select(["id", "brand", "name", "year"])
+    .select(["id", "brand", "name", "year", "display_name"])
     .where("id", "=", payload.carId)
     .executeTakeFirst();
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Selected car was not found." }, { status: 404 });
   }
 
-  const carLabel = `${car.brand} ${car.name} ${car.year}`;
+  const carLabel = car.display_name || `${car.brand} ${car.name} ${car.year}`;
 
   await db
     .insertInto("leads")

@@ -24,12 +24,14 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 a,
@@ -72,4 +74,92 @@ select {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Desktop/laptop Hero vehicle: keep the full PNG visible, large, and inside the Hero.
+   Tailwind v4 uses the `translate` property (not only `transform`), so both must reset. */
+@media (min-width: 1024px) {
+  .hero-vehicle {
+    left: auto;
+    right: auto;
+    width: 100%;
+    max-width: min(50vw, 720px);
+    max-height: min(62vh, 580px);
+    min-width: 0;
+    translate: none;
+    transform: none;
+    object-fit: contain;
+    object-position: right center;
+  }
+}
+
+@media (min-width: 1280px) {
+  .hero-vehicle {
+    max-width: min(50vw, 720px);
+    max-height: min(64vh, 640px);
+  }
+}
+
+@media (min-width: 1440px) {
+  .hero-vehicle {
+    max-width: min(52vw, 800px);
+    max-height: min(66vh, 700px);
+  }
+}
+
+@media (min-width: 1600px) {
+  .hero-vehicle {
+    max-width: min(52vw, 860px);
+    max-height: min(68vh, 720px);
+  }
+}
+
+@media (min-width: 1920px) {
+  .hero-vehicle {
+    max-width: min(55vw, 900px);
+    max-height: min(70vh, 740px);
+  }
+}
+
+.bg-hero {
+  background-color: #080a0b;
+}
+
+.hero-cinematic {
+  background:
+    radial-gradient(ellipse 55% 48% at 78% 22%, rgba(201, 160, 127, 0.2), transparent 58%),
+    radial-gradient(ellipse 42% 36% at 8% 88%, rgba(33, 27, 23, 0.85), transparent 62%);
+}
+
+.bg-offers {
+  background-color: #111416;
+  background-image: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(201, 160, 127, 0.09), transparent 58%);
+}
+
+.bg-why {
+  background-color: #1a1715;
+  background-image:
+    radial-gradient(ellipse 50% 60% at 88% 20%, rgba(201, 160, 127, 0.08), transparent 55%),
+    linear-gradient(180deg, rgba(8, 10, 11, 0.22), transparent 22%);
+}
+
+.bg-location {
+  background-color: #101214;
+  background-image: linear-gradient(90deg, #101214 0%, #101214 38%, #0c0e10 100%);
+}
+
+.bg-reviews {
+  background-color: #151719;
+}
+
+.bg-cta {
+  background-color: #080a0b;
+}
+
+.bg-footer {
+  background-color: #070809;
+}
+
+.map-embed iframe {
+  filter: grayscale(0.45) brightness(0.68) contrast(1.12) saturate(0.72);
 }

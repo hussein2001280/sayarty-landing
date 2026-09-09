@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db, ensureDatabase, getSiteSettings, json } from "@/lib/server/db";
 
 export async function getCars() {
@@ -7,6 +9,7 @@ export async function getCars() {
     .selectFrom("cars")
     .selectAll()
     .where("active", "=", 1)
+    .where("featured", "=", 1)
     .orderBy("sort_order", "asc")
     .execute();
 
@@ -17,6 +20,7 @@ export async function getCars() {
           .selectFrom("car_colors")
           .selectAll()
           .where("car_id", "=", car.id)
+          .where("active", "=", 1)
           .orderBy("sort_order", "asc")
           .execute(),
         db
@@ -41,7 +45,7 @@ export async function getCars() {
   );
 }
 
-export async function getLandingData() {
+export const getLandingData = cache(async function getLandingData() {
   const [settings, cars, trustFeatures, reviews, locations] = await Promise.all([
     getSiteSettings(),
     getCars(),
@@ -56,7 +60,6 @@ export async function getLandingData() {
       .selectAll()
       .where("published", "=", 1)
       .orderBy("sort_order", "asc")
-      .limit(3)
       .execute(),
     db
       .selectFrom("locations")
@@ -69,6 +72,7 @@ export async function getLandingData() {
 
   const mediaIds = [
     settings.hero.heroImageId,
+    settings.cta.backgroundImageId,
     settings.seo.ogImageId,
     ...cars.map((car) => car.main_image_id),
     ...locations.map((location) => location.image_id),
@@ -95,14 +99,21 @@ export async function getLandingData() {
     })),
     locations: locations.map((location) => ({
       ...location,
+      city: location.city || settings.contact.city,
+      country: location.country || settings.contact.country,
+      maps_search: location.maps_search || location.address || settings.contact.mapsSearch,
+      google_maps_url: location.google_maps_url || settings.contact.mapUrl,
       image: location.image_id ? mediaById.get(location.image_id) ?? null : null,
     })),
     heroMedia: settings.hero.heroImageId
       ? mediaById.get(settings.hero.heroImageId) ?? null
       : null,
+    ctaMedia: settings.cta.backgroundImageId
+      ? mediaById.get(settings.cta.backgroundImageId) ?? null
+      : null,
     ogMedia: settings.seo.ogImageId ? mediaById.get(settings.seo.ogImageId) ?? null : null,
   };
-}
+});
 
 export type LandingData = Awaited<ReturnType<typeof getLandingData>>;
 
@@ -110,11 +121,14 @@ export async function getOverviewData() {
   await ensureDatabase();
 
   const leads = await db.selectFrom("leads").selectAll().execute();
-  const cars = await db.selectFrom("cars").select(["id", "brand", "name", "year"]).execute();
+  const cars = await db
+    .selectFrom("cars")
+    .select(["id", "brand", "name", "year", "display_name"])
+    .execute();
 
   const topCars = cars
     .map((car) => ({
-      label: `${car.brand} ${car.name} ${car.year}`,
+      label: car.display_name || `${car.brand} ${car.name} ${car.year}`,
       leads: leads.filter((lead) => lead.car_id === car.id).length,
     }))
     .sort((a, b) => b.leads - a.leads)

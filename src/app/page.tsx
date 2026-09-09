@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { LandingPage } from "@/components/landing/landing-page";
+import { buildLocalBusinessJsonLd } from "@/lib/business";
 import { getLandingData } from "@/lib/server/content";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getLandingData();
@@ -23,5 +26,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const data = await getLandingData();
-  return <LandingPage {...data} />;
+  const jsonLd = buildLocalBusinessJsonLd(data.settings);
+
+  return (
+    <section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <LandingPage {...data} />
+    </section>
+  );
 }

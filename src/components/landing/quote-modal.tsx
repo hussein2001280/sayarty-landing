@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
+import { carDisplayName } from "@/lib/business";
 import { trackEvent } from "@/lib/tracking";
-import { formatCurrency } from "@/lib/utils";
+import type { PricingSettings } from "@/lib/types";
+import { formatPrice } from "@/lib/utils";
 
 type LeadForm = {
   fullName: string;
@@ -21,10 +22,12 @@ type QuoteModalProps = {
     id: string;
     brand: string;
     name: string;
+    display_name?: string | null;
     year: number;
     price: number;
     currency: string;
   } | null;
+  pricing?: PricingSettings;
   open: boolean;
   onClose: () => void;
 };
@@ -77,20 +80,12 @@ const emptyTrackingParams = {
   gbraid: "",
 };
 
-export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
+export function QuoteModal({ car, pricing, open, onClose }: QuoteModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [tracking, setTracking] = useState(emptyTrackingParams);
-  const carLabel = car ? `${car.brand} ${car.name} ${car.year}` : "";
+  const carLabel = car ? carDisplayName(car) : "";
 
-  const form = useForm<LeadForm>({
-    defaultValues: {
-      fullName: "",
-      phone: "",
-      email: "",
-      message: "",
-      preferredContactMethod: "phone",
-    },
-  });
+  const form = useFormState();
 
   useEffect(() => {
     setTracking(getTrackingParams());
@@ -122,7 +117,8 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
 
   const selectedCar = car;
 
-  async function onSubmit(values: LeadForm) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSubmitting(true);
 
     try {
@@ -130,7 +126,7 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...values,
+          ...form.values,
           carId: selectedCar.id,
           ...tracking,
           honeypot: "",
@@ -173,10 +169,10 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-[#C9A07F]">Request a Quote</p>
             <h3 id="quote-modal-title" className="mt-2 text-2xl font-semibold text-white">
-              {carLabel}
+              Get vehicle details
             </h3>
             <p className="mt-2 text-sm text-[#A8AAA8]">
-              {formatCurrency(car.currency, car.price)}
+              {formatPrice(car.price, pricing, car.currency)}
             </p>
           </div>
           <button
@@ -189,49 +185,60 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
           </button>
         </div>
 
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+        <form className="space-y-4" onSubmit={onSubmit}>
+          <label className="space-y-2 text-sm text-[#F5F5F3]">
+            <span>Selected Vehicle</span>
+            <input
+              value={carLabel}
+              readOnly
+              className="h-12 w-full rounded-2xl border border-white/10 px-4 text-white"
+            />
+          </label>
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm text-[#F5F5F3]">
               <span>Full Name</span>
               <input
-                {...form.register("fullName", { required: "Name is required." })}
+                value={form.values.fullName}
+                onChange={(event) => form.set("fullName", event.target.value)}
+                required
                 className="h-12 w-full rounded-2xl border border-white/10 px-4"
                 placeholder="Your full name"
               />
-              <span className="text-xs text-red-300">{form.formState.errors.fullName?.message}</span>
             </label>
 
             <label className="space-y-2 text-sm text-[#F5F5F3]">
               <span>Phone Number</span>
               <input
-                {...form.register("phone", { required: "Phone number is required." })}
+                value={form.values.phone}
+                onChange={(event) => form.set("phone", event.target.value)}
+                required
+                minLength={8}
                 className="h-12 w-full rounded-2xl border border-white/10 px-4"
                 placeholder="+971 ..."
               />
-              <span className="text-xs text-red-300">{form.formState.errors.phone?.message}</span>
             </label>
           </div>
 
           <label className="space-y-2 text-sm text-[#F5F5F3]">
             <span>Email</span>
             <input
-              {...form.register("email", {
-                required: "Email is required.",
-                pattern: {
-                  value: /\S+@\S+\.\S+/,
-                  message: "Enter a valid email address.",
-                },
-              })}
+              type="email"
+              value={form.values.email}
+              onChange={(event) => form.set("email", event.target.value)}
+              required
               className="h-12 w-full rounded-2xl border border-white/10 px-4"
               placeholder="you@example.com"
             />
-            <span className="text-xs text-red-300">{form.formState.errors.email?.message}</span>
           </label>
 
           <label className="space-y-2 text-sm text-[#F5F5F3]">
             <span>Preferred Contact Method</span>
             <select
-              {...form.register("preferredContactMethod")}
+              value={form.values.preferredContactMethod}
+              onChange={(event) =>
+                form.set("preferredContactMethod", event.target.value as LeadForm["preferredContactMethod"])
+              }
               className="h-12 w-full rounded-2xl border border-white/10 px-4"
             >
               <option value="phone">Phone</option>
@@ -243,7 +250,8 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
           <label className="space-y-2 text-sm text-[#F5F5F3]">
             <span>Message</span>
             <textarea
-              {...form.register("message")}
+              value={form.values.message}
+              onChange={(event) => form.set("message", event.target.value)}
               rows={4}
               className="w-full rounded-2xl border border-white/10 px-4 py-3"
               placeholder="Tell us anything useful about your request."
@@ -263,4 +271,25 @@ export function QuoteModal({ car, open, onClose }: QuoteModalProps) {
       </div>
     </div>
   );
+}
+
+function useFormState() {
+  const empty: LeadForm = useMemo(
+    () => ({
+      fullName: "",
+      phone: "",
+      email: "",
+      message: "",
+      preferredContactMethod: "phone",
+    }),
+    [],
+  );
+  const [values, setValues] = useState<LeadForm>(empty);
+
+  return {
+    values,
+    set: <K extends keyof LeadForm>(key: K, value: LeadForm[K]) =>
+      setValues((current) => ({ ...current, [key]: value })),
+    reset: () => setValues(empty),
+  };
 }

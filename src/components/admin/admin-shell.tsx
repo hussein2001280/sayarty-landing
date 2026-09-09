@@ -21,14 +21,23 @@ export function AdminShell({
             <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin">
               Overview
             </Link>
+            <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/hero">
+              Hero
+            </Link>
             <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/cars">
               Cars
+            </Link>
+            <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/locations">
+              Locations
             </Link>
             <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/leads">
               Leads
             </Link>
             <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/settings">
               Settings
+            </Link>
+            <Link className="block rounded-2xl px-3 py-2 hover:bg-white/5" href="/admin/settings#legal">
+              Legal Information
             </Link>
           </nav>
         </aside>

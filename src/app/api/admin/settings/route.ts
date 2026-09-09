@@ -39,9 +39,12 @@ export async function POST(request: Request) {
         .insertInto("locations")
         .values({
           id: location.id ? String(location.id) : crypto.randomUUID(),
-          name: String(location.name ?? "Location"),
+          name: String(location.name ?? "Sayarty Online"),
           address: String(location.address ?? ""),
+          city: String(location.city ?? ""),
+          country: String(location.country ?? ""),
           google_maps_url: String(location.google_maps_url ?? ""),
+          maps_search: String(location.maps_search ?? location.address ?? ""),
           latitude: String(location.latitude ?? ""),
           longitude: String(location.longitude ?? ""),
           phone: String(location.phone ?? ""),

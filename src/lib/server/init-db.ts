@@ -29,142 +29,6 @@ async function seed() {
       .execute();
   }
 
-  const existingCars = await db
-    .selectFrom("cars")
-    .select("id")
-    .executeTakeFirst();
-
-  if (!existingCars) {
-    const cars = [
-      {
-        brand: "Toyota",
-        name: "Land Cruiser",
-        model: "VX-R",
-        year: 2024,
-        price: 389000,
-        currency: "AED",
-        price_label: "Starting from",
-        description: "Flagship SUV with premium interior and powerful twin turbo performance.",
-      },
-      {
-        brand: "Nissan",
-        name: "Patrol",
-        model: "LE Platinum",
-        year: 2024,
-        price: 345000,
-        currency: "AED",
-        price_label: "Starting from",
-        description: "Luxury family SUV with 4WD confidence and advanced safety features.",
-      },
-      {
-        brand: "BMW",
-        name: "X5",
-        model: "xDrive40i",
-        year: 2024,
-        price: 299000,
-        currency: "AED",
-        price_label: "Starting from",
-        description: "Refined performance SUV with premium cabin comfort and modern technology.",
-      },
-      {
-        brand: "Mercedes-Benz",
-        name: "E-Class",
-        model: "E 200",
-        year: 2024,
-        price: 269000,
-        currency: "AED",
-        price_label: "Starting from",
-        description: "Elegant executive sedan with sleek design and a comfort-focused ride.",
-      },
-    ];
-
-    for (const [index, car] of cars.entries()) {
-      const carId = crypto.randomUUID();
-      await db
-        .insertInto("cars")
-        .values({
-          id: carId,
-          slug: `${car.brand}-${car.name}-${car.year}`.toLowerCase().replaceAll(" ", "-"),
-          gallery_ids: "[]",
-          featured: 1,
-          active: 1,
-          sort_order: index + 1,
-          main_image_id: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          ...car,
-        })
-        .execute();
-
-      const specs = [
-        "Premium Interior",
-        "Advanced Safety",
-        "4WD",
-        "UAE Specification",
-      ];
-
-      for (const [specIndex, spec] of specs.entries()) {
-        await db
-          .insertInto("car_specs")
-          .values({
-            id: crypto.randomUUID(),
-            car_id: carId,
-            label: spec,
-            sort_order: specIndex + 1,
-          })
-          .execute();
-      }
-
-      const colors = [
-        { name: "Black", hex_code: "#121212" },
-        { name: "Pearl White", hex_code: "#F2F2EE" },
-        { name: "Champagne", hex_code: "#C9A07F" },
-      ];
-
-      for (const [colorIndex, color] of colors.entries()) {
-        await db
-          .insertInto("car_colors")
-          .values({
-            id: crypto.randomUUID(),
-            car_id: carId,
-            image_id: null,
-            sort_order: colorIndex + 1,
-            ...color,
-          })
-          .execute();
-      }
-    }
-  }
-
-  const existingReviews = await db
-    .selectFrom("reviews")
-    .select("id")
-    .executeTakeFirst();
-
-  if (!existingReviews) {
-    const reviews = [
-      "Demo review: replace this with a verified customer review from the dashboard.",
-      "Demo review: highlight a smooth buying process and transparent support.",
-      "Demo review: describe vehicle quality and after-sales communication.",
-    ];
-
-    for (const [index, review] of reviews.entries()) {
-      await db
-        .insertInto("reviews")
-        .values({
-          id: crypto.randomUUID(),
-          customer_name: `Demo Customer ${index + 1}`,
-          rating: 5,
-          review_text: review,
-          photo_id: null,
-          review_date: new Date().toISOString().slice(0, 10),
-          published: 1,
-          sort_order: index + 1,
-        })
-        .execute();
-    }
-  }
-
   const existingLocations = await db
     .selectFrom("locations")
     .select("id")
@@ -175,9 +39,12 @@ async function seed() {
       .insertInto("locations")
       .values({
         id: crypto.randomUUID(),
-        name: "Primary Showroom",
+        name: "Sayarty Online",
         address: settings.contact.address,
+        city: settings.contact.city,
+        country: settings.contact.country,
         google_maps_url: settings.contact.mapUrl,
+        maps_search: settings.contact.mapsSearch,
         latitude: "",
         longitude: "",
         phone: settings.contact.phone,
